@@ -4,14 +4,14 @@
 
 module counter
   #(parameter WIDTH_P = 8
-   ,parameter [WIDTH_P-1:0] RESET_VAL_P = '0
+    ,parameter [WIDTH_P-1:0] RESET_VAL_P = '0
     )
   (input clk_i
-  ,input reset_i
-  ,input en_i
-  ,input up_i
-  ,input dw_i
-  ,output [WIDTH_P-1:0] count_o
+   ,input reset_i
+   ,input en_i
+   ,input up_i
+   ,input dw_i
+   ,output [WIDTH_P-1:0] count_o
    );
 
   
@@ -31,8 +31,7 @@ module counter
   always_ff @(posedge clk_i) begin
     if (reset_i) begin
       count_r <= RESET_VAL_P;
-    end
-    else if (en_i) begin
+    end else if (en_i) begin
       count_r <= count_n;
     end
   end
