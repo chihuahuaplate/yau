@@ -190,7 +190,7 @@ module tb_counter();
   always @(posedge clk_i) begin : output_checker
     if (tb_start) begin
       if ($isunknown(count_o)) begin
-        $error("DUT produced unresolvable value on non reset");
+        $error("DUT produced unresolvable value.");
         tb_error = 1; #1;
         $finish();
       end else begin      
