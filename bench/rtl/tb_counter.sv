@@ -84,7 +84,6 @@ module tb_counter();
     dw_i              = 1'b0;
 
     @(negedge reset_i);
-
     repeat (2) @(negedge clk_i);
 
     $display("Simulation time is %0t", $time);
