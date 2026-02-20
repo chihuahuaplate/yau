@@ -73,7 +73,11 @@ module tb_tx_baud_generator();
 
 
     // remain high
+    baud_div_i = 0;
+    repeat(5) @(negedge clk_i);    
     baud_div_i = 1;
+    repeat(baud_div_i*5) @(negedge clk_i);
+    baud_div_i = 2;
     repeat(baud_div_i*5) @(negedge clk_i);
     baud_div_i = baud_div_f(4800, CLOCK_PERIOD_P, TIME_UNIT_P);
     repeat(baud_div_i*5) @(negedge clk_i);
