@@ -84,10 +84,10 @@ module tb_uart_tx();
     bit parity_bit;
 
     case (data_width)
-      DW5: parity_bit = parity_type ? (^data[4:0]) : (~^data[4:0]);
-      DW6: parity_bit = parity_type ? (^data[5:0]) : (~^data[5:0]);
-      DW7: parity_bit = parity_type ? (^data[6:0]) : (~^data[6:0]);
-      DW8: parity_bit = parity_type ? (^data[7:0]) : (~^data[7:0]);
+      DW5: parity_bit = parity_type ? (^data[4:0]) : !(^data[4:0]);
+      DW6: parity_bit = parity_type ? (^data[5:0]) : !(^data[5:0]);
+      DW7: parity_bit = parity_type ? (^data[6:0]) : !(^data[6:0]);
+      DW8: parity_bit = parity_type ? (^data[7:0]) : !(^data[7:0]);
     endcase
 
     parity_func = parity_bit;
@@ -125,7 +125,6 @@ module tb_uart_tx();
     valid_i = 0;
 
   endtask
-
 
   // Input generator
   // NOTE: Create test cases

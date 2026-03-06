@@ -11,7 +11,6 @@ module tb_tx_parity();
   bit [3:0] tb_vec;
   int tb_vec_index;
 
-
   // inputs
   bit clk_i;
   // Set at start of sim by nonsynth_reset_gen

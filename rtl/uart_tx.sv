@@ -50,7 +50,7 @@ module uart_tx
   logic        parity;
   logic        parity_type;
   logic        extra_stop;
-  logic [23:0] baud_div;
+  logic [26:0] baud_div;
 
   // Controller signals
   logic    tx_valid;
@@ -130,7 +130,7 @@ module uart_tx
   );
 
   tx_baud_generator #(
-    .WIDTH_P(24)
+    .WIDTH_P(27)
   ) tx_baud_generator_unit (
     .clk_i      (clk_i),
     .reset_i    (baud_reset),
