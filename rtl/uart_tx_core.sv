@@ -2,10 +2,7 @@
 
 module uart_tx_core
   import uart_core_pkg::*;
-#(
-  // TODO: remove
-  parameter logic [31:0] INIT_CONFIG_P = 32'h883
-) (
+  (
   input  logic        clk_i,
   input  logic        reset_i,
 
@@ -16,12 +13,9 @@ module uart_tx_core
   input  logic [7:0]  data_i,
 
   output logic        tx_o
-);
+  );
 
   ////////// Signal Declarations //////////
-
-  // NOTE: config_i[31:5] = Fclk_i / (16 * Fbaud)
-  // Thus config_baud_div = (config_i[31:5] * 16)
 
   // TODO: clearly explain all these signals
   data_width_e  config_data_width;
@@ -29,6 +23,7 @@ module uart_tx_core
   parity_type_e config_parity_type;
   stop_e        config_stop;
   logic [26:0]  config_baud_div;
+  logic [26:0]  config_baud_max;
 
   // Internal
   logic [2:0]  config_data_msb;
@@ -38,7 +33,7 @@ module uart_tx_core
     config_parity_en   = parity_en_e'(config_i[2]);
     config_parity_type = parity_type_e'(config_i[3]);
     config_stop        = stop_e'(config_i[4]);
-    config_baud_div    = (config_i[31:5] << 4) - 1;
+    config_baud_max    = config_i[31:5] - 1;
 
     case (config_data_width)
       DW_5: config_data_msb = 3'd4;
@@ -51,8 +46,8 @@ module uart_tx_core
 
   logic [7:0]  shift_reg;
   logic        parity_reg;
-  logic [26:0] baud_counter;
-  logic [3:0]  bit_counter;
+  logic [26:0] baud_count;
+  logic [3:0]  bit_count;
 
   tx_state_e tx_state;
 
@@ -61,13 +56,13 @@ module uart_tx_core
 
   always_ff @(posedge clk_i) begin
     if (reset_i) begin
-      ready_o      <= 1'b0;
-      tx_o         <= 1'b1;
-      tx_state     <= IDLE;
-      shift_reg    <= '0;
-      parity_reg   <= 1'b0;
-      baud_counter <= '0;
-      bit_counter  <= '0;
+      ready_o    <= 1'b0;
+      tx_o       <= 1'b1;
+      tx_state   <= IDLE;
+      shift_reg  <= '0;
+      parity_reg <= 1'b0;
+      baud_count <= '0;
+      bit_count  <= '0;
     end else begin
 
       case (tx_state)
@@ -76,10 +71,10 @@ module uart_tx_core
           ready_o <= 1'b1;
           tx_o    <= 1'b1;
 
-          if (valid_i && (config_baud_div != '0)) begin
+          if (ready_o && valid_i) begin
             tx_state     <= START;
             shift_reg    <= data_i;
-            baud_counter <= '0;
+            baud_count <= '0;
           end
         end
 
@@ -88,20 +83,20 @@ module uart_tx_core
           ready_o <= 1'b0;
           tx_o    <= 1'b0;
 
-          if (baud_counter == config_baud_div) begin
+          if (baud_count == config_baud_max) begin
             tx_state <= DATA;
             parity_reg <= !config_parity_type; // TODO: Explain
-            baud_counter <= '0;
-            bit_counter <= '0;
+            baud_count <= '0;
+            bit_count <= '0;
           end else begin
-            baud_counter <= baud_counter + 1;
+            baud_count <= baud_count + 1;
           end
         end
 
         DATA: begin
           tx_o <= shift_reg[0];
 
-          if (baud_counter == config_baud_div) begin
+          if (baud_count == config_baud_max) begin
             // shift operation
             shift_reg <= {1'b1, shift_reg[7:1]};
 
@@ -111,16 +106,16 @@ module uart_tx_core
             end
 
             // transition state
-            if (bit_counter == config_data_msb) begin
+            if (bit_count == config_data_msb) begin
               tx_state <= (config_parity_en) ? PARITY : STOP;
-              baud_counter <= '0;
+              baud_count <= '0;
             end else begin
-              bit_counter <= bit_counter + 1;
-              baud_counter <= '0;
+              bit_count <= bit_count + 1;
+              baud_count <= '0;
             end
 
           end else begin
-            baud_counter <= baud_counter + 1;
+            baud_count <= baud_count + 1;
           end
 
         end
@@ -128,33 +123,33 @@ module uart_tx_core
         PARITY: begin
           tx_o <= parity_reg;
 
-          if (baud_counter == config_baud_div) begin
+          if (baud_count == config_baud_max) begin
             tx_state <= STOP;
-            baud_counter <= '0;
+            baud_count <= '0;
           end else begin
-            baud_counter <= baud_counter + 1;
+            baud_count <= baud_count + 1;
           end
         end
 
         STOP: begin
           tx_o <= 1'b1;
 
-          if (baud_counter == config_baud_div) begin
+          if (baud_count == config_baud_max) begin
             tx_state <= (config_stop == TWO_STOP) ? EXTRA_STOP : IDLE;
-            baud_counter <= '0;
+            baud_count <= '0;
           end else begin
-            baud_counter <= baud_counter + 1;
+            baud_count <= baud_count + 1;
           end
         end
 
         EXTRA_STOP: begin
           tx_o <= 1'b1;
 
-          if (baud_counter == config_baud_div) begin
+          if (baud_count == config_baud_max) begin
             tx_state <= IDLE;
-            baud_counter <= '0;
+            baud_count <= '0;
           end else begin
-            baud_counter <= baud_counter + 1;
+            baud_count <= baud_count + 1;
           end
         end
 
