@@ -33,7 +33,7 @@ module uart_tx_core
     config_parity_en   = parity_en_e'(config_i[2]);
     config_parity_type = parity_type_e'(config_i[3]);
     config_stop        = stop_e'(config_i[4]);
-    config_baud_max    = config_i[31:5] - 1;
+    config_baud_max    = (config_i[31:5] << 4) - 1;
 
     case (config_data_width)
       DW_5: config_data_msb = 3'd4;

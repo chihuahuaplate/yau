@@ -104,7 +104,7 @@ module tb_uart_tx_core();
     bit [26:0] baud_div;
 
     $display("@%0t: Changing configuration.", $time);
-    baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / baud_rate;
+    baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (16 * baud_rate);
     config_i = {baud_div, stop, parity_type, parity_en, data_width};
     $display("Baud rate: %0d, Baud div: %0d, Data width: %0p, Parity: %0p, Parity Type: %0p, Stop: %0p.",
              baud_rate, baud_div, data_width, parity_en, parity_type, stop);
@@ -256,7 +256,7 @@ module tb_uart_tx_core();
 
           model_frame_q.delete();
 
-          model_baud_max = config_i[31:5] - 1;
+          model_baud_max = (config_i[31:5] << 4) - 1;
           model_baud_count <= 0;
 
           // calculate frame length
