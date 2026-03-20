@@ -27,8 +27,7 @@ package uart_core_pkg;
     START,
     DATA,
     PARITY,
-    STOP,
-    EXTRA_STOP
-  } tx_state_e;
+    STOP
+  } uart_state_e;
 
 endpackage : uart_core_pkg

@@ -49,7 +49,7 @@ module uart_tx_core
   logic [26:0] baud_count;
   logic [3:0]  bit_count;
 
-  tx_state_e tx_state;
+  uart_state_e tx_state;
 
   initial ready_o = 1'b0;
   initial tx_o = 1'b1;
@@ -76,27 +76,32 @@ module uart_tx_core
             shift_reg    <= data_i;
             baud_count <= '0;
           end
-        end
+        end // case: IDLE
 
         START: begin
           // outputs
           ready_o <= 1'b0;
           tx_o    <= 1'b0;
 
+          baud_count <= baud_count + 1;
+
           if (baud_count == config_baud_max) begin
             tx_state <= DATA;
             parity_reg <= !config_parity_type; // TODO: Explain
             baud_count <= '0;
             bit_count <= '0;
-          end else begin
-            baud_count <= baud_count + 1;
           end
-        end
+        end // case: START
 
         DATA: begin
           tx_o <= shift_reg[0];
 
+          baud_count <= baud_count + 1;
+
           if (baud_count == config_baud_max) begin
+            baud_count <= '0;
+            bit_count <= bit_count + 1;
+
             // shift operation
             shift_reg <= {1'b1, shift_reg[7:1]};
 
@@ -109,49 +114,36 @@ module uart_tx_core
             if (bit_count == config_data_msb) begin
               tx_state <= (config_parity_en) ? PARITY : STOP;
               baud_count <= '0;
-            end else begin
-              bit_count <= bit_count + 1;
-              baud_count <= '0;
+              bit_count <= '0;
             end
-
-          end else begin
-            baud_count <= baud_count + 1;
           end
-
-        end
+        end // case: DATA
 
         PARITY: begin
           tx_o <= parity_reg;
 
+          baud_count <= baud_count + 1;
+
           if (baud_count == config_baud_max) begin
             tx_state <= STOP;
             baud_count <= '0;
-          end else begin
-            baud_count <= baud_count + 1;
           end
         end
 
         STOP: begin
           tx_o <= 1'b1;
 
-          if (baud_count == config_baud_max) begin
-            tx_state <= (config_stop == TWO_STOP) ? EXTRA_STOP : IDLE;
-            baud_count <= '0;
-          end else begin
-            baud_count <= baud_count + 1;
-          end
-        end
-
-        EXTRA_STOP: begin
-          tx_o <= 1'b1;
+          baud_count <= baud_count + 1;
 
           if (baud_count == config_baud_max) begin
-            tx_state <= IDLE;
-            baud_count <= '0;
-          end else begin
-            baud_count <= baud_count + 1;
+            bit_count <= bit_count + 1;
+
+            if (bit_count == config_stop) begin
+              tx_state <= IDLE;
+              baud_count <= '0;
+            end
           end
-        end
+        end // case: STOP
 
         default: begin
           // TODO: more can be done with this?
