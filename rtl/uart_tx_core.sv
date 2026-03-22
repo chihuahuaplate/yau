@@ -22,11 +22,10 @@ module uart_tx_core
   parity_en_e   config_parity_en;
   parity_type_e config_parity_type;
   stop_e        config_stop;
-  logic [26:0]  config_baud_div;
   logic [26:0]  config_baud_max;
 
   // Internal
-  logic [2:0]  config_data_msb;
+  logic [2:0] config_data_msb;
 
   always_comb begin
     config_data_width  = data_width_e'(config_i[1:0]);

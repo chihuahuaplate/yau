@@ -261,7 +261,7 @@ module tb_uart_tx_core();
 
           // calculate frame length
 
-          // stop bit
+          // start bit
           model_frame_len = 1;
           model_frame_q.push_back(1'b0);
 
