@@ -87,37 +87,36 @@ module tb_uart_rx_core();
     input parity_type_e parity_type,
     input stop_e stop
   );
-    bit [26:0] baud_div;
+    bit [26:0] _rx_baud_div;
 
     $display("@%0t: Changing configuration.", $time);
-    baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (16 * baud_rate);
-    config_i = {baud_div, stop, parity_type, parity_en, data_width};
+    _rx_baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (16 * baud_rate);
+    config_i = {_rx_baud_div, stop, parity_type, parity_en, data_width};
     $display("Baud rate: %0d, Baud div: %0d, Data width: %0p, Parity: %0p, Parity Type: %0p, Stop: %0p.",
-             baud_rate, baud_div, data_width, parity_en, parity_type, stop);
+             baud_rate, _rx_baud_div, data_width, parity_en, parity_type, stop);
     @(negedge clk_i);
   endtask
 
   task automatic transmit_task(
-    input int        baud_rate,
-    input            data_width_e data_width,
-    input            parity_en_e parity_en,
-    input            parity_type_e parity_type,
-    input            stop_e stop,
+    input int baud_rate,
+    input data_width_e data_width,
+    input parity_en_e parity_en,
+    input parity_type_e parity_type,
+    input stop_e stop,
     input logic [7:0] data,
-      // TOOD: Add errors
     input logic frame_error,
     input logic parity_error
   );
     // Baud divisor for Transmission
-    bit [26:0] baud_div;
-    int tx_data_len;
+    bit [26:0] _tx_baud_div;
 
-    baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (baud_rate);
+    _tx_baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (baud_rate);
 
-    tb_frame_q.delete();
-    // Construct tb_frame_q
+    // Construct tx_frame_q anew
+    tx_frame_q.delete();
+
     // start bit
-    tb_frame_q.push_back(1'b0);
+    tx_frame_q.push_back(1'b0);
 
     // data bits
     case (data_width)
@@ -129,44 +128,42 @@ module tb_uart_rx_core();
 
     for (int i = 0; i < tx_data_len; i++) begin
       if (parity_en && parity_error) begin
-        if (i == 0) begin
-          tb_frame_q.push_back(!data[i]);
-        end else begin
-          tb_frame_q.push_back(data[i]);
-        end
+        // Flip an odd number of bits (1 in this case)
+        if (i == 0) tx_frame_q.push_back(!data[i]);
+        else tx_frame_q.push_back(data[i]);
       end else begin
-        tb_frame_q.push_back(data[i]);
+          tx_frame_q.push_back(data[i]);
       end
     end
 
     // parity bit
     if (parity_en) begin
-      tb_frame_q.push_back(parity_func(parity_type, data_width, data));
+      tx_frame_q.push_back(parity_func(parity_type, data_width, data));
     end
 
     // stop bit
     if (stop) begin
       if (frame_error) begin
-        tb_frame_q.push_back(1'b0);
-        tb_frame_q.push_back(1'b1);
+        tx_frame_q.push_back(1'b0);
+        tx_frame_q.push_back(1'b1);
       end else begin
-        tb_frame_q.push_back(1'b1);
-        tb_frame_q.push_back(1'b1);
+        tx_frame_q.push_back(1'b1);
+        tx_frame_q.push_back(1'b1);
       end
     end else begin
       if (frame_error) begin
-        tb_frame_q.push_back(1'b0);
+        tx_frame_q.push_back(1'b0);
       end else begin
-        tb_frame_q.push_back(1'b1);
+        tx_frame_q.push_back(1'b1);
       end
     end
 
-    $display("@%0t: Transmit frame constructed: %0p", $time, tb_frame_q);
-    $display("@%0t: Transmit frame len: %0d", $time, tb_frame_q.size());
+    $display("@%0t: Transmit frame constructed: %0p", $time, tx_frame_q);
+    $display("@%0t: Transmit frame len: %0d", $time, tx_frame_q.size());
 
-    foreach(tb_frame_q[i]) begin
-      rx_i = tb_frame_q[i];
-      repeat (baud_div) @(negedge clk_i);
+    foreach(tx_frame_q[i]) begin
+      rx_i = tx_frame_q[i];
+      repeat (_tx_baud_div) @(negedge clk_i);
     end
 
   endtask
@@ -174,17 +171,18 @@ module tb_uart_rx_core();
   // test bench variables
   bit tb_error;
 
-  bit tb_frame_q [$];
+  bit tx_frame_q[$];
+  int tx_data_len;
+  bit [7:0] tx_data;
+  bit tx_frame_error;
+  bit tx_parity_error;
 
-  int tb_baud_index;
-  logic [26:0] tb_baud_rate [0:5];
   data_width_e  tb_data_width;
   parity_en_e   tb_parity_en;
   parity_type_e tb_parity_type;
   stop_e        tb_stop;
-  logic [7:0] tb_tx_data;
-  bit tb_frame_error;
-  bit tb_parity_error;
+  bit [26:0] tb_baud_rate [0:5];
+  int tb_baud_index;
 
   // Input Generator
   initial begin
@@ -197,9 +195,9 @@ module tb_uart_rx_core();
     tb_parity_en = DISABLED;
     tb_parity_type = ODD;
     tb_stop = ONE_STOP;
-    tb_tx_data = 8'b0101_0101;
-    tb_frame_error = 1'b0;
-    tb_parity_error = 1'b0;
+    tx_data = 8'b0101_0101;
+    tx_frame_error = 1'b0;
+    tx_parity_error = 1'b0;
 
     @(negedge reset_i);
 
@@ -227,13 +225,13 @@ module tb_uart_rx_core();
             tb_stop = tb_stop.first();
             do begin
 
-              tb_frame_error = 1'b0;
+              tx_frame_error = 1'b0;
               do begin
 
-                tb_parity_error = 1'b0;
+                tx_parity_error = 1'b0;
                 do begin
 
-                  tb_tx_data = $urandom();
+                  tx_data = $urandom();
                   configure_task(
                     tb_baud_rate[tb_baud_index],
                     tb_data_width,
@@ -247,19 +245,19 @@ module tb_uart_rx_core();
                     tb_parity_en,
                     tb_parity_type,
                     tb_stop,
-                    tb_tx_data,
-                    tb_frame_error,
-                    tb_parity_error
+                    tx_data,
+                    tx_frame_error,
+                    tx_parity_error
                   );
 
                   rx_i = 1;     // Set to IDLE
                   repeat(100) @(negedge clk_i);
 
-                  tb_parity_error = !tb_parity_error;
-                end while(tb_parity_error != 1'b0);
+                  tx_parity_error = !tx_parity_error;
+                end while(tx_parity_error != 1'b0);
 
-                tb_frame_error = !tb_frame_error;
-              end while(tb_frame_error != 1'b0);
+                tx_frame_error = !tx_frame_error;
+              end while(tx_frame_error != 1'b0);
 
               tb_stop = tb_stop.next();
             end while (tb_stop != tb_stop.first());
@@ -283,14 +281,16 @@ module tb_uart_rx_core();
   end
 
   // Behavioural model
+
   bit model_valid_o;
+  bit [7:0] model_data_o;
   bit model_frame_error_o;
   bit model_parity_error_o;
 
   bit model_in_rx;
   int model_clk_count;
   int model_clk_max;
-  int model_rx_max;
+  int model_rx_baud_div;
 
   bit model_negedge_rx;
   detect_negedge model_negedge_detector(
@@ -310,6 +310,10 @@ module tb_uart_rx_core();
       $error("DUT produced unresolvable value on valid_o.");
       tb_error = 1; #1;
       $finish();
+    end else if ($isunknown(data_o)) begin
+      $error("DUT produced unresolvable value on data_o.");
+      tb_error = 1; #1;
+      $finish();
     end else if ($isunknown(frame_error_o)) begin
       $error("DUT produced unresolvable value on frame_error_o.");
       tb_error = 1; #1;
@@ -322,27 +326,36 @@ module tb_uart_rx_core();
 
       if (!model_in_rx) begin
         model_valid_o <= 1'b0;
+        model_data_o <= '0;     // Clear so that all bits are zero
         model_frame_error_o <= 1'b0;
         model_parity_error_o <= 1'b0;
 
         if (model_negedge_rx) begin
           model_in_rx <= 1'b1;
           model_clk_count <= '0;
-
-          // record errors
-          model_frame_error_o <= tb_frame_error;
-          model_parity_error_o <= tb_parity_error;
-
-          // rx_baud_max
-          model_rx_max = ((1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) / (16 * tb_baud_rate[tb_baud_index]));
-          model_clk_max = (model_rx_max * 8) - 1; // clocks to center on stop bit
-          model_clk_max = model_clk_max + (model_rx_max * 16) * (tb_frame_q.size() - 1);
+          // calculate clocks to set model_valid_o
+          model_rx_baud_div = (1/(CLOCK_PERIOD_LP * $pow(10, CLOCK_UNIT_LP))) /
+                              (16 * tb_baud_rate[tb_baud_index]);
+          model_clk_max = (model_rx_baud_div * 8) - 1; // clocks to center on stop bit
+          model_clk_max = model_clk_max +
+                          ((model_rx_baud_div * 16) * (tx_frame_q.size() - 1));
         end
       end else begin
         model_clk_count <= model_clk_count + 1;
 
         if (model_clk_count == model_clk_max) begin
           model_valid_o <= 1'b1;
+
+          for (int i = 0; i < tx_data_len; i++) begin
+            model_data_o[i] <= tx_frame_q[i+1];
+          end
+          // Set frame errors
+          // NOTE: Although errors may be raised earlier in the DUT it is
+          // sufficient for the model to raise them when setting valid_o as
+          // the error status needs to be correct when valid_o is HIGH.
+          model_frame_error_o <= tx_frame_error;
+          model_parity_error_o <= tx_parity_error;
+
           model_in_rx <= 1'b0;
         end
       end
@@ -356,8 +369,15 @@ module tb_uart_rx_core();
         $finish();
       end
 
-      // When model_valid_o HIGH ensure errors are reported correctly
+      // When model_valid_o HIGH ensure data & errors are reported correctly
       if (model_valid_o) begin
+        if (data_o !== model_data_o) begin
+          $error("DUT output does not match model output.");
+          $error("data_o: (%b). model_data_o (%b).",
+                 data_o, model_data_o);
+          tb_error = 1; #1;
+          $finish();
+        end
         if (frame_error_o !== model_frame_error_o) begin
           $error("DUT output does not match model output.");
           $error("frame_error_o: (%b). model_frame_error_o (%b).",
@@ -375,7 +395,6 @@ module tb_uart_rx_core();
       end
     end
   end
-
 
   final begin
     $display("Simulation time is %0t", $time);
