@@ -52,6 +52,7 @@ module uart_rx_core
   logic [26:0] baud_count;
   logic [3:0]  sample_count;
   logic [3:0]  bit_count;
+  logic        false_start;
 
   uart_state_e rx_state;
 
@@ -76,6 +77,7 @@ module uart_rx_core
       rx_state <= IDLE;
       shift_reg <= '0;
       parity_reg <= 1'b0;
+      false_start <= 1'b0;
       baud_count <= '0;
       sample_count <= '0;
       bit_count <= '0;
@@ -87,11 +89,13 @@ module uart_rx_core
           parity_error_o <= 1'b0;
 
           // detected a beginning of START bit
-          if (negedge_rx) begin
+          if (!false_start && negedge_rx) begin
             rx_state <= START;
             baud_count <= '0;
             sample_count <= '0;
             shift_reg <= '0;
+          end else begin
+            false_start <= 1'b0;
           end
         end
         START: begin
@@ -102,6 +106,7 @@ module uart_rx_core
             baud_count <= '0;
 
             if (rx_i) begin
+              false_start <= 1'b1;
               // False start
               rx_state <= IDLE;
             end else if (sample_count == 4'd7) begin
