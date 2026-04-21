@@ -16,6 +16,17 @@ module uart_tx_core
   );
 
   ////////// Signal Declarations //////////
+  logic [31:0] config_q, config_d;
+  assign config_d = config_i;
+
+  always_ff @(posedge clk_i) begin
+    if (reset_i) begin
+      config_q <= '0;
+    end else if (ready_o && valid_i) begin
+      config_q[31:5] <= (config_d[31:5] << 4) - 1;
+      config_q[4:0]  <= config_d[4:0];
+    end
+  end
 
   // TODO: clearly explain all these signals
   data_width_e  config_data_width;
@@ -28,11 +39,11 @@ module uart_tx_core
   logic [2:0] config_data_msb;
 
   always_comb begin
-    config_data_width  = data_width_e'(config_i[1:0]);
-    config_parity_en   = parity_en_e'(config_i[2]);
-    config_parity_type = parity_type_e'(config_i[3]);
-    config_stop        = stop_e'(config_i[4]);
-    config_baud_max    = (config_i[31:5] << 4) - 1;
+    config_data_width  = data_width_e'(config_q[1:0]);
+    config_parity_en   = parity_en_e'(config_q[2]);
+    config_parity_type = parity_type_e'(config_q[3]);
+    config_stop        = stop_e'(config_q[4]);
+    config_baud_max    = config_q[31:5];
 
     case (config_data_width)
       DW_5: config_data_msb = 3'd4;
@@ -47,15 +58,14 @@ module uart_tx_core
   logic        parity_reg;
   logic [26:0] baud_count;
   logic [3:0]  bit_count;
-
   uart_state_e tx_state;
 
-  initial ready_o = 1'b0;
   initial tx_o = 1'b1;
+
+  assign ready_o = (tx_state == IDLE);
 
   always_ff @(posedge clk_i) begin
     if (reset_i) begin
-      ready_o    <= 1'b0;
       tx_o       <= 1'b1;
       tx_state   <= IDLE;
       shift_reg  <= '0;
@@ -66,8 +76,6 @@ module uart_tx_core
 
       case (tx_state)
         IDLE: begin
-          // outputs
-          ready_o <= 1'b1;
           tx_o    <= 1'b1;
 
           if (ready_o && valid_i) begin
@@ -78,8 +86,6 @@ module uart_tx_core
         end // case: IDLE
 
         START: begin
-          // outputs
-          ready_o <= 1'b0;
           tx_o    <= 1'b0;
 
           baud_count <= baud_count + 1;
@@ -135,6 +141,7 @@ module uart_tx_core
           baud_count <= baud_count + 1;
 
           if (baud_count == config_baud_max) begin
+            baud_count <= '0;
             bit_count <= bit_count + 1;
 
             if (bit_count == config_stop) begin
@@ -145,7 +152,6 @@ module uart_tx_core
         end // case: STOP
 
         default: begin
-          // TODO: more can be done with this?
           tx_state <= IDLE;
         end
 

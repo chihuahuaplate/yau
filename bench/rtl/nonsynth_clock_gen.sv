@@ -8,8 +8,7 @@ module nonsynth_clock_gen #(
 
   initial begin
     $display("%m with CLOCK_PERIOD_P ", CLOCK_PERIOD_P);
-    assert(CLOCK_PERIOD_P >= 2)
-      else $error("cannot simulate cycle time less than 2");
+    assert(CLOCK_PERIOD_P >= 2) else $error("cannot simulate cycle time less than 2");
   end
 
   always begin
