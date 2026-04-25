@@ -289,7 +289,7 @@ module tb_uart_tx_core();
     valid_i  = '0;
     data_i   = '0;
 
-    baud_vectors = new [5];
+    baud_vectors = new [6];
     baud_vectors = '{4800, 9600, 19200, 38400, 57600, 115200};
 
     baud_rate = 0;

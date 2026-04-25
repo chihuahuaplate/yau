@@ -300,7 +300,6 @@ module tb_uart_rx_core();
 
       // Loop through all data widths
 
-      // TODO: Change back to .first() ----+vvvvvv+
       config_data_width = config_data_width.first();
 
       do begin
@@ -354,7 +353,6 @@ module tb_uart_rx_core();
                       wait (!tx_active);
                       repeat (10) @(negedge clk_i);
 
-
                       tx_false_start_pos += 1;
                     end while(tx_false_start_pos != 3'b000);
 
@@ -384,7 +382,6 @@ module tb_uart_rx_core();
     end // for (config_baud_index = 0; config_baud_index < $size(config_baud_rate); config_baud_index++)
 
     $finish();
-
   end
 
 
@@ -461,10 +458,6 @@ module tb_uart_rx_core();
 
           model_frame_q.delete();
           model_frame_data = 0;
-
-          // model_data_o <= tx_data;
-          model_frame_error_o <= tx_frame_error;
-          model_parity_error_o <= tx_parity_error;
 
           model_counter <= 0;
         end else begin
