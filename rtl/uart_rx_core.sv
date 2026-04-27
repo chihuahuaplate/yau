@@ -99,6 +99,8 @@ module uart_rx_core
           end
         end
         START: begin
+          // TODO: remove rx_i low for 8 consecutive bauds for detection ?
+
           baud_count <= baud_count + 1;
 
           if(baud_count == config_baud_max) begin

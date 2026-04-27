@@ -120,8 +120,8 @@ module uart (
 
   always_comb begin
     tx_fifo_data_li = thr_data_lo;
-    tx_fifo_valid_li = thr_valid_lo && en_tx_lo;
-    thr_ready_li = tx_fifo_ready_lo && en_tx_lo;
+    tx_fifo_valid_li = thr_valid_lo;
+    thr_ready_li = tx_fifo_ready_lo;
   end
 
   fifo_fwft #(
@@ -176,8 +176,8 @@ module uart (
     rhr_data_li      = rx_fifo_data_lo[7:0];
     frame_error_li   = rx_fifo_data_lo[8];
     parity_error_li  = rx_fifo_data_lo[9];
-    rhr_valid_li     = rx_fifo_valid_lo && en_rx_lo;
-    rx_fifo_ready_li = rhr_ready_lo && en_rx_lo;
+    rhr_valid_li     = rx_fifo_valid_lo;
+    rx_fifo_ready_li = rhr_ready_lo;
   end
 
   fifo_fwft #(
@@ -206,7 +206,7 @@ module uart (
   always_comb begin
     rx_fifo_data_li = {rx_uart_parity_error_lo, rx_uart_frame_error_lo, rx_uart_data_lo};
     rx_fifo_valid_li = rx_uart_valid_lo && en_rx_lo;
-    overrun_error_li = en_rx_lo && rx_uart_valid_lo && !rx_fifo_ready_lo;
+    overrun_error_li = (rx_uart_valid_lo && !rx_fifo_ready_lo) && en_rx_lo;
   end
 
   uart_rx_core rx_uart (
