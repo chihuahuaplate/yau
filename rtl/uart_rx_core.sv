@@ -11,10 +11,12 @@ module uart_rx_core
   // synchronizer & feed the output as rx_i.
   input logic rx_i,
 
-  output logic [7:0] data_o,
+  input logic ready_i,
   output logic valid_o,
+  output logic [7:0] data_o,
   output logic frame_error_o,
-  output logic parity_error_o
+  output logic parity_error_o,
+  output logic overrun_error_o
   );
 
   ////////// Signal Declarations //////////
@@ -64,6 +66,19 @@ module uart_rx_core
     .negedge_o(negedge_rx)
   );
 
+  // Pulse overrun_error_i for one cycle if data was not transferred.
+  initial overrun_error_o = 1'b0;
+
+  always_ff @(posedge clk_i) begin
+    if (reset_i) begin
+      overrun_error_o <= 1'b0;
+    end else if (overrun_error_o == 1'b1) begin
+      overrun_error_o <= 1'b0;
+    end else if (valid_o && !ready_i) begin
+      overrun_error_o <= 1'b1;
+    end
+  end
+
   initial valid_o = 1'b0;
   initial frame_error_o = 1'b0;
   initial parity_error_o = 1'b0;
@@ -73,7 +88,6 @@ module uart_rx_core
       valid_o <= 1'b0;
       frame_error_o <= 1'b0;
       parity_error_o <= 1'b0;
-
       rx_state <= IDLE;
       shift_reg <= '0;
       parity_reg <= 1'b0;
@@ -88,42 +102,39 @@ module uart_rx_core
           frame_error_o <= 1'b0;
           parity_error_o <= 1'b0;
 
-          // detected a beginning of START bit
-          if (!false_start && negedge_rx) begin
+          // TODO: ????
+          // Clear the false_start bit before checking for neg edge,
+          // this gives us a 
+          
+          if (false_start) begin
+            false_start <= 1'b0;
+          end else if (negedge_rx) begin
             rx_state <= START;
             baud_count <= '0;
             sample_count <= '0;
             shift_reg <= '0;
-          end else begin
-            false_start <= 1'b0;
           end
         end
         START: begin
-          // TODO: remove rx_i low for 8 consecutive bauds for detection ?
-
           baud_count <= baud_count + 1;
 
           if(baud_count == config_baud_max) begin
             sample_count <= sample_count + 1;
             baud_count <= '0;
 
-            if (rx_i) begin
-              false_start <= 1'b1;
-              // False start
-              rx_state <= IDLE;
-            end else if (sample_count == 4'd7) begin
-              // Successfully detected a good start bit
-              // AKA 8 consecutive LOW samples.
-
-              rx_state <= DATA;
-              baud_count <= '0;
-              sample_count <= '0;
-              bit_count <= '0;
-
-              parity_reg <= !config_parity_type; // TODO: Explain
+            if (sample_count == 4'd7) begin
+              if (rx_i) begin
+                rx_state <= IDLE;
+                false_start <= 1'b1;
+              end else begin
+                rx_state <= DATA;
+                baud_count <= '0;
+                sample_count <= '0;
+                bit_count <= '0;
+                parity_reg <= !config_parity_type;
+              end
             end
           end
-
         end
         DATA: begin
           baud_count <= baud_count + 1;
@@ -204,9 +215,7 @@ module uart_rx_core
             end
           end
         end
-
         default: begin
-          // Can do more?
           rx_state <= IDLE;
         end
       endcase
