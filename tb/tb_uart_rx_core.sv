@@ -142,13 +142,13 @@ module tb_uart_rx_core();
     config_i = {baud_div, stop, parity_type, parity_en, data_width};
     $write("[%0t] Config change: ", $time());
     $write("Baud_rate: %0d, Baud_div: %0d, Data_width: %p, Parity_en: %p, Parity_type: %p, Stop: %p",
-      baud_rate, baud_div, data_width, parity_en, parity_type, stop
+           baud_rate, baud_div, data_width, parity_en, parity_type, stop
     );
     $display();
     @(negedge clk_i);
   endtask
 
-  // Transmitter 
+  // Transmitter
   bit tx_start;
   bit tx_frame_q [$];
   int tx_frame_index;
@@ -207,18 +207,18 @@ module tb_uart_rx_core();
     if (stop == ONE_STOP) begin
       if (frame_error == FRAME_ERROR_TRUE) begin
         tx_frame_q.push_back(1'b0);
-      end else begin 
+      end else begin
         tx_frame_q.push_back(1'b1);
       end
     end else if (stop == TWO_STOP) begin
       // Frame error on first stop bit
-      if (frame_error == FRAME_ERROR_TRUE) begin 
+      if (frame_error == FRAME_ERROR_TRUE) begin
         tx_frame_q.push_back(1'b0);
-      end else begin 
+      end else begin
         tx_frame_q.push_back(1'b1);
       end
       // second stop bit
-      tx_frame_q.push_back(1'b1);      
+      tx_frame_q.push_back(1'b1);
     end
 
     // Signals TX procedure to start if not active
@@ -243,7 +243,7 @@ module tb_uart_rx_core();
     end else if (tx_active) begin
       tx_o <= tx_frame_q[tx_frame_index];
 
-      // TODO: implement false start 
+      // TODO: implement false start
       if (tx_start_type == FALSE_START) begin
         if (tx_false_timing == FALSE_START_EARLY) begin
           if (tx_frame_index == 0 && (tx_baud_count > 0)) begin
@@ -310,8 +310,8 @@ module tb_uart_rx_core();
       end
 
       if (overrun_error_o !== rx_overrun_error_o) begin
-        $error("DUT output mismatch: overrun_error_o: (%b). rx_overrun_error_o: (%b)", 
-          overrun_error_o, rx_overrun_error_o);
+        $error("DUT output mismatch: overrun_error_o: (%b). rx_overrun_error_o: (%b)",
+               overrun_error_o, rx_overrun_error_o);
         error = 1; #1;
         $finish;
       end
@@ -351,7 +351,7 @@ module tb_uart_rx_core();
       error = 1; #1;
       $finish;
     end else begin
-      
+
       if (!rx_active) begin
         rx_valid_o <= 0;
         rx_frame_error_o <= 0;
@@ -385,10 +385,10 @@ module tb_uart_rx_core();
 
             if (rx_i == 1) begin
               rx_false_start <= 1;
-              rx_active <= 0;              
-            end 
+              rx_active <= 0;
+            end
           end else if (!rx_sample_start_bit && (rx_sample_count == 15)) begin
-            // $display("[%0t] Sample bit", $time());            
+            // $display("[%0t] Sample bit", $time());
             rx_sample_count <= 0;
             rx_frame_q.push_back(rx_i);
 
@@ -396,21 +396,22 @@ module tb_uart_rx_core();
               rx_active <= 0;
               // outputs
               rx_valid_o <= 1;
-              
+
               for (int i = 0; i < data_len_f(data_width); i++) begin
                 rx_frame_data[i] = rx_frame_q[i+1];
               end
               rx_data_o <= rx_frame_data;
 
               if (stop == ONE_STOP) begin
-                rx_frame_error_o <= rx_frame_q[rx_frame_q.size() - 1] != 1;  
+                rx_frame_error_o <= rx_frame_q[rx_frame_q.size() - 1] != 1;
               end else begin
                 rx_frame_error_o <= (rx_frame_q[rx_frame_q.size() - 1] != 1) ||
-                                    (rx_frame_q[rx_frame_q.size() - 2] != 1);                  
+                                    (rx_frame_q[rx_frame_q.size() - 2] != 1);
               end
-              
+
               if (parity_en == ENABLED) begin
-                rx_parity_error_o <= rx_frame_q[data_len_f(data_width)+1] != parity_f(parity_type, data_width, rx_frame_data);
+                rx_parity_error_o <= rx_frame_q[data_len_f(data_width)+1] !=
+                                     parity_f(parity_type, data_width, rx_frame_data);
               end
 
             end
@@ -419,34 +420,34 @@ module tb_uart_rx_core();
       end
 
       if (valid_o !== rx_valid_o) begin
-        $error("DUT output mismatch: valid_o: (%b). rx_valid_o: (%b)", 
-          valid_o, rx_valid_o);
+        $error("DUT output mismatch: valid_o: (%b). rx_valid_o: (%b)",
+               valid_o, rx_valid_o);
         error = 1; #1;
-        $finish;        
+        $finish;
       end
 
       if (rx_valid_o) begin
-        
+
         if (data_o !== rx_data_o) begin
-          $error("DUT output mismatch: data_o: (%b). rx_data_o: (%b)", 
-            data_o, rx_data_o);
+          $error("DUT output mismatch: data_o: (%b). rx_data_o: (%b)",
+                 data_o, rx_data_o);
           error = 1; #1;
-          $finish;            
+          $finish;
         end
 
         if (frame_error_o !== rx_frame_error_o) begin
-          $error("DUT output mismatch: frame_error_o: (%b). rx_frame_error_o: (%b)", 
-            frame_error_o, rx_frame_error_o);
+          $error("DUT output mismatch: frame_error_o: (%b). rx_frame_error_o: (%b)",
+                 frame_error_o, rx_frame_error_o);
           error = 1; #1;
-          $finish;            
-        end        
+          $finish;
+        end
 
         if (parity_error_o !== rx_parity_error_o) begin
-          $error("DUT output mismatch: parity_error_o: (%b). rx_parity_error_o: (%b)", 
-            parity_error_o, rx_parity_error_o);
+          $error("DUT output mismatch: parity_error_o: (%b). rx_parity_error_o: (%b)",
+                 parity_error_o, rx_parity_error_o);
           error = 1; #1;
-          $finish;            
-        end        
+          $finish;
+        end
       end
     end
   end
@@ -480,7 +481,7 @@ module tb_uart_rx_core();
     false_timing = FALSE_START_LATE;
     frame_error = FRAME_ERROR_FALSE;
     parity_error = PARITY_ERROR_FALSE;
-    overrun_error = OVERRUN_ERROR_FALSE;  
+    overrun_error = OVERRUN_ERROR_FALSE;
 
     @(negedge reset_i);
     repeat (10) @(negedge clk_i);
@@ -492,31 +493,31 @@ module tb_uart_rx_core();
 
       data_width = data_width.first();
       do begin
-        
+
         parity_en = parity_en.first();
         do begin
-          
+
           parity_type = parity_type.first();
           do begin
-            
-              stop = stop.first();
+
+            stop = stop.first();
+            do begin
+
+              start_type = start_type.first();
               do begin
-                
-                start_type = start_type.first();
+
+                false_timing = false_timing.first();
                 do begin
-                  
-                  false_timing = false_timing.first();
+
+                  frame_error = frame_error.first();
                   do begin
-                    
-                    frame_error = frame_error.first();
-                    do begin
-                      
+
                     parity_error = parity_error.first();
                     do begin
-                      
+
                       overrun_error = overrun_error.first();
                       do begin
-                        
+
                         configure(baud_rate, data_width, parity_en, parity_type, stop);
                         transmit($urandom, data_width, parity_en, parity_type, stop, start_type, false_timing, frame_error, parity_error);
 
@@ -529,24 +530,24 @@ module tb_uart_rx_core();
 
                       parity_error = parity_error.next();
                     end while (parity_error != parity_error.first());
-                    
-                      frame_error = frame_error.next();
-                    end while (frame_error != frame_error.first());
-                    
-                    false_timing = false_timing.next();
-                  end while (false_timing != false_timing.first());
 
-                  start_type = start_type.next();
-                end while (start_type != start_type.first());
+                    frame_error = frame_error.next();
+                  end while (frame_error != frame_error.first());
 
-                stop = stop.next();
-              end while (stop != stop.first());
+                  false_timing = false_timing.next();
+                end while (false_timing != false_timing.first());
 
-              parity_type = parity_type.next();
-            end while (parity_type != parity_type.first());
+                start_type = start_type.next();
+              end while (start_type != start_type.first());
 
-            parity_en = parity_en.next();
-          end while (parity_en != parity_en.first());
+              stop = stop.next();
+            end while (stop != stop.first());
+
+            parity_type = parity_type.next();
+          end while (parity_type != parity_type.first());
+
+          parity_en = parity_en.next();
+        end while (parity_en != parity_en.first());
 
         data_width = data_width.next();
       end while (data_width != data_width.first());

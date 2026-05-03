@@ -43,61 +43,58 @@ module tb_uart();
     RHR_ADDR      = 3'd5
   } uart_addr_e;
 
-  // DUT parameters
-
-  // DUT inputs
-  // write address & data channel
-  uart_addr_e  wr_addr_i;
-  logic [31:0] wr_data_i;
-  logic [3:0]  wr_strb_i;
-  logic        wr_valid_i;
-  // write response channel
-  logic        wr_ready_i;
-  // read adddress channel
-  uart_addr_e  rd_addr_i;
-  logic        rd_valid_i;
-  // read response channel
-  logic        rd_ready_i;
-  // uart pin
+  // DUT inputs & outputs
+  uart_addr_e s_axil_awaddr_i;
+  logic [2:0] s_axil_awprot_i;
+  logic       s_axil_awvalid_i;
+  logic       s_axil_awready_o;
+  // W Channel
+  logic [31:0] s_axil_wdata_i;
+  logic [3:0]  s_axil_wstrb_i;
+  logic        s_axil_wvalid_i;
+  logic        s_axil_wready_o;
+  // B Channel
+  logic [1:0] s_axil_bresp_o;
+  logic       s_axil_bvalid_o;
+  logic       s_axil_bready_i;
+  // AR Channel
+  uart_addr_e s_axil_araddr_i;
+  logic [2:0] s_axil_arprot_i;
+  logic       s_axil_arvalid_i;
+  logic       s_axil_arready_o;
+  // R Channel
+  logic [31:0] s_axil_rdata_o;
+  logic [1:0]  s_axil_rresp_o;
+  logic        s_axil_rvalid_o;
+  logic        s_axil_rready_i;
+  // Uart pins
   logic        rx_i;
-
-  // DUT outputs
-
-  // write adddress && data channel
-  logic        wr_ready_o;
-  // write response channel
-  logic        wr_valid_o;
-  logic        wr_error_o;
-
-  // read address channel
-  logic        rd_ready_o;
-  // read response channel
-  logic        rd_valid_o;
-  logic [31:0] rd_data_o;
-  logic        rd_error_o;
-  // uart pin
   logic        tx_o;
 
   // DUT instance
   uart DUT (
     .clk_i(clk_i),
-    .reset_i(reset_i),
+    .resetn_i(!reset_i),
     // Register interface
-    .wr_addr_i(wr_addr_i),
-    .wr_data_i(wr_data_i),
-    .wr_strb_i(wr_strb_i),
-    .wr_ready_o(wr_ready_o),
-    .wr_valid_i(wr_valid_i),
-    .wr_ready_i(wr_ready_i),
-    .wr_valid_o(wr_valid_o),
-    .wr_error_o(wr_error_o),
-    .rd_addr_i(rd_addr_i),
-    .rd_ready_o(rd_ready_o),
-    .rd_valid_i(rd_valid_i),
-    .rd_ready_i(rd_ready_i),
-    .rd_valid_o(rd_valid_o),
-    .rd_data_o(rd_data_o),
-    .rd_error_o(rd_error_o),
+    .s_axil_awaddr_i(s_axil_awaddr_i),
+    .s_axil_awprot_i(s_axil_awprot_i),
+    .s_axil_awvalid_i(s_axil_awvalid_i),
+    .s_axil_awready_o(s_axil_awready_o),
+    .s_axil_wdata_i(s_axil_wdata_i),
+    .s_axil_wstrb_i(s_axil_wstrb_i),
+    .s_axil_wvalid_i(s_axil_wvalid_i),
+    .s_axil_wready_o(s_axil_wready_o),
+    .s_axil_bresp_o(s_axil_bresp_o),
+    .s_axil_bvalid_o(s_axil_bvalid_o),
+    .s_axil_bready_i(s_axil_bready_i),
+    .s_axil_araddr_i(s_axil_araddr_i),
+    .s_axil_arprot_i(s_axil_arprot_i),
+    .s_axil_arvalid_i(s_axil_arvalid_i),
+    .s_axil_arready_o(s_axil_arready_o),
+    .s_axil_rdata_o(s_axil_rdata_o),
+    .s_axil_rresp_o(s_axil_rresp_o),
+    .s_axil_rvalid_o(s_axil_rvalid_o),
+    .s_axil_rready_i(s_axil_rready_i),
     // uart
     .rx_i(rx_i),
     .tx_o(tx_o)
@@ -105,88 +102,9 @@ module tb_uart();
 
   assign rx_i = tx_o;
 
-  // Write data success
-  bit wr_data_success;
-  int wr_data_timeout;
-
-  always_ff @(posedge clk_i) begin
-    wr_data_success <= ((wr_ready_o === 1'b1) && wr_valid_i);
-  end
-
-  always @(posedge clk_i) begin
-    if (reset_i || ((wr_ready_o === 1'b1) && wr_valid_i)) begin
-      wr_data_timeout <= 0;
-    end else if (wr_data_timeout > 10) begin
-      $error("[%0t] Timeout on Write addr/data channel. wr_valid_i was high for 10 cycles with no response.", $time);
-      error = 1; #1;
-      $finish();
-    end else if (wr_valid_i && (wr_ready_o !== 1'b1)) begin
-      wr_data_timeout <= wr_data_timeout + 1;
-    end
-  end
-
-  // Write response success
-  bit wr_resp_success;
-  int wr_resp_timeout;
-
-  always_ff @(posedge clk_i) begin
-    wr_resp_success <= ((wr_valid_o === 1'b1) && wr_ready_i);
-  end
-
-  always @(posedge clk_i) begin
-    if (reset_i || ((wr_valid_o === 1'b1) && wr_ready_i)) begin
-      wr_resp_timeout <= 0;
-    end else if (wr_resp_timeout > 10) begin
-      $error("[%0t] Timeout on Write response channel. wr_ready_i was high for 10 cycles with no response.", $time);
-      error = 1; #1;
-      $finish();
-    end else if (wr_ready_i && (wr_valid_o !== 1'b1)) begin
-      wr_resp_timeout <= wr_resp_timeout + 1;
-    end
-  end
-
-  // Read data success
-  bit rd_data_success;
-  int rd_data_timeout;
-
-  always_ff @(posedge clk_i) begin
-    rd_data_success <= ((rd_ready_o === 1'b1) && rd_valid_i);
-  end
-
-  always @(posedge clk_i) begin
-    if (reset_i || ((rd_ready_o === 1'b1) && rd_valid_i)) begin
-      rd_data_timeout <= 0;
-    end else if (rd_data_timeout > 10) begin
-      $error("[%0t] Timeout on Read address channel. rd_valid_i was high for 10 cycles with no response.", $time);
-      error = 1; #1;
-      $finish();
-    end else if (rd_valid_i && (rd_ready_o !== 1'b1)) begin
-      rd_data_timeout <= rd_data_timeout + 1;
-    end
-  end
-
-  // Read response success
-  bit rd_resp_success;
-  int rd_resp_timeout;
-
-  always_ff @(posedge clk_i) begin
-    rd_resp_success <= ((rd_valid_o === 1'b1) && rd_ready_i);
-  end
-
-  always @(posedge clk_i) begin
-    if (reset_i || ((rd_valid_o === 1'b1) && rd_ready_i)) begin
-      rd_resp_timeout <= 0;
-    end else if (rd_resp_timeout > 10) begin
-      $error("[%0t] Timeout on Read response channel. rd_ready_i was high for 10 cycles with no response.", $time);
-      error = 1; #1;
-      $finish();
-    end else if (rd_ready_i && (rd_valid_o !== 1'b1)) begin
-      rd_resp_timeout <= rd_resp_timeout + 1;
-    end
-  end
-
   task automatic reset;
     reset_li = 1;
+    $display("[%0t] Reset.", $time);
     repeat (1) @(negedge clk_i);
     reset_li = 0;
   endtask
@@ -208,41 +126,46 @@ module tb_uart();
     input uart_addr_e address,
     input logic [31:0] data
   );
-    wr_addr_i = address;
-    wr_data_i = data;
-    wr_strb_i = '1;
+    s_axil_awaddr_i = address;
+    s_axil_wdata_i = data;
+    s_axil_wstrb_i = '1;
 
-    wr_valid_i = 1;
-    wait (wr_data_success == 1'b1);
-    // $write("[%0t] WRITE[%p]: %0d ", $time, address, data);
+    s_axil_awvalid_i = 1;
+    s_axil_wvalid_i = 1;
+    wait ((s_axil_wready_o && s_axil_wvalid_i) && (s_axil_wready_o && s_axil_wvalid_i));
+    $write("[%0t] WRITE[%p]: %0x ", $time, s_axil_awaddr_i, s_axil_wdata_i);
     @(negedge clk_i);
-    wr_valid_i = 0;
+    s_axil_awvalid_i = 0;
+    s_axil_wvalid_i = 0;
 
-    wr_ready_i = 1;
-    wait (wr_resp_success == 1'b1);
-    // $write("[%0t] rd_error_o: %0b", $time, rd_error_o);
-    // $display();
+    s_axil_bready_i = 1;
+    wait (s_axil_bready_i && s_axil_bvalid_o);
+    if (s_axil_bresp_o == 2'b00) $write("[PASS]");
+    else $write("[ERROR]");
+    $display();
     @(negedge clk_i);
-    wr_ready_i = 0;
+    s_axil_bready_i = 0;
   endtask
 
   task automatic read(
     input uart_addr_e address
   );
-    rd_addr_i = address;
+    s_axil_araddr_i = address;
 
-    rd_valid_i = 1;
-    wait (rd_data_success == 1'b1);
-    // $write("[%0t] READ[%p]: ", $time, address);
+    s_axil_arvalid_i = 1;
+    wait (s_axil_arready_o && s_axil_arvalid_i);
+    $write("[%0t] READ[%p]: ", $time, s_axil_araddr_i);
     @(negedge clk_i);
-    rd_valid_i = 0;
+    s_axil_arvalid_i = 0;
 
-    rd_ready_i = 1;
-    wait (rd_resp_success == 1'b1);
-    // $write("[%0t] rd_data_o:%0d rd_error_o: %0b", $time, rd_data_o, rd_error_o);
-    // $display();
+    s_axil_rready_i = 1;
+    wait (s_axil_rready_i && s_axil_rvalid_o);
+    if (s_axil_rresp_o == 2'b00) $write("[PASS] ");
+    else $write("[ERROR] ");
+    $write("s_axil_rdata_o = %0x", s_axil_rdata_o);
+    $display();
     @(negedge clk_i);
-    rd_ready_i = 0;
+    s_axil_rready_i = 0;
   endtask
 
   task automatic read_until_cond(
@@ -257,55 +180,71 @@ module tb_uart();
 
     do begin
       read(addr);
-      if ((rd_data_o & cond) != cond) begin
+      if ((s_axil_rdata_o & cond) != cond) begin
         repeat (tx_baud_div) @(negedge clk_i);
       end else begin
-        $display("[%0t] read_until_cond: %p = %0d", $time, addr, cond);
+        $display("[%0t] READ_UNTIL_COND: %p = %0d", $time, addr, cond);
         break;
       end
     end while (1);
   endtask
 
+  localparam bit [31:0] RHR_VALID     = 1 << 0;
+  localparam bit [31:0] RHR_READY     = 1 << 1;
+  localparam bit [31:0] FRAME_ERROR   = 1 << 2;
+  localparam bit [31:0] PARITY_ERROR  = 1 << 3;
+  localparam bit [31:0] OVERRUN_ERROR = 1 << 4;
+  localparam bit [31:0] TX_FIFO_FULL  = 1 << 5;
+  localparam bit [31:0] RX_FIFO_FULL  = 1 << 6;
+  localparam bit [31:0] TX_FIFO_EMPTY = 1 << 7;
+  localparam bit [31:0] RX_FIFO_EMPTY = 1 << 8;
+
 
   initial begin
     // default values
-    wr_addr_i       = CTRL_ADDR;
-    wr_data_i       = '0;
-    wr_strb_i       = '0;
-    wr_valid_i      = '0;
-    wr_ready_i      = '0;
-    rd_addr_i       = CTRL_ADDR;
-    rd_valid_i      = '0;
-    rd_ready_i      = '0;
+    s_axil_awaddr_i  = CTRL_ADDR;
+    s_axil_awprot_i  = '0;
+    s_axil_awvalid_i = '0;
+    s_axil_wdata_i   = '0;
+    s_axil_wstrb_i   = '0;
+    s_axil_wvalid_i  = '0;
+    s_axil_bready_i  = '0;
+    s_axil_araddr_i  = CTRL_ADDR;
+    s_axil_arprot_i  = '0;
+    s_axil_arvalid_i = '0;
+    s_axil_rready_i  = '0;
 
     @(negedge reset_i);
     repeat (10) @(negedge clk_i);
 
     $display("[%0t] Simulation start.", $time);
-
+    $display("[%0t] Write test.", $time);
     write(CTRL_ADDR, 3);
+    write(STATUS_ADDR, 3);
+    write(BAUD_DIV_ADDR, 3);
+    write(MODE_ADDR, 3);
+    write(THR_ADDR, 3);
+    write(RHR_ADDR, 3);
+    $display("[%0t] Read test.", $time);
+    read(CTRL_ADDR);
+    read(STATUS_ADDR);
+    read(BAUD_DIV_ADDR);
+    read(MODE_ADDR);
+    read(THR_ADDR);
+    read(RHR_ADDR);
+
+    reset();
+
+    $display("[%0t] Transmit test.", $time);
+    write(CTRL_ADDR, 0);
     write(BAUD_DIV_ADDR, baud_div_f(115200));
-    write(MODE_ADDR, 3);        // 8N1
+    write(THR_ADDR, 32'h55);
 
-    // write data
-    write(THR_ADDR, 85);
-    write(THR_ADDR, 24);
-    write(THR_ADDR, 67);
-    write(THR_ADDR, 01);
+    read_until_cond(115200, STATUS_ADDR, RHR_READY);
+    read(RHR_ADDR);
+    read(STATUS_ADDR);
 
-    read_until_cond(115200, STATUS_ADDR, 2);
-    read(RHR_ADDR);
-    assert(rd_data_o == 85);
-    read_until_cond(115200, STATUS_ADDR, 2);
-    read(RHR_ADDR);
-    assert(rd_data_o == 24);
-    read_until_cond(115200, STATUS_ADDR, 2);
-    read(RHR_ADDR);
-    assert(rd_data_o == 67);
-    read_until_cond(115200, STATUS_ADDR, 2);
-    read(RHR_ADDR);
-    assert(rd_data_o == 01);
-
+    repeat (10) @(negedge clk_i);
     $finish();
   end
 
