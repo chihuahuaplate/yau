@@ -213,12 +213,17 @@ module tb_uart_rx_core();
     end else if (stop == TWO_STOP) begin
       // Frame error on first stop bit
       if (frame_error == FRAME_ERROR_TRUE) begin
-        tx_frame_q.push_back(1'b0);
+        if ($urandom_range(1, 0) == 0) begin
+          tx_frame_q.push_back(1'b0);
+          tx_frame_q.push_back(1'b1);
+        end else begin
+          tx_frame_q.push_back(1'b1);
+          tx_frame_q.push_back(1'b0);
+        end
       end else begin
         tx_frame_q.push_back(1'b1);
+        tx_frame_q.push_back(1'b1);
       end
-      // second stop bit
-      tx_frame_q.push_back(1'b1);
     end
 
     // Signals TX procedure to start if not active
