@@ -14,21 +14,21 @@ Testbenches for individual components are also included.
 ## Documentation
 TODO: See uart-doc.pdf for a detailed explanation.
 
-### uart.sv
+### [uart.sv](./rtl/uart.sv)
 AXI4 Lite UART peripheral.
 
-### uart_registers.sv
+### [uart_registers.sv](./rtl/uart_registers.sv)
 Registers used for Control & Status of the peripheral of which there
 are 6.
 
-### fifo_fwft.sv
+### [fifo_fwft.sv](./rtl/fifo_fwft.sv)
 First Word Fall Through FIFO, appropriate for ready-valid handshaking
 scheme.
 
-### uart_tx_core.sv
+### [uart_tx_core.sv](./rtl/uart_tx_core.sv)
 Transmitter UART.
 
-### uart_rx_core.sv
+### [uart_rx_core.sv](./rtl/uart_rx_core.sv)
 Receiver UART.
 
 ## References
