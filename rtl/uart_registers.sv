@@ -126,8 +126,9 @@ module uart_registers (
           awready_d = 1'b0;
           wready_d = 1'b0;
           bvalid_d = 1'b1;
-          bresp_d = ((s_axil_awaddr_i == STATUS_ADDR) || (s_axil_awaddr_i == RHR_ADDR)) ?
-                    2'b10 : 2'b00;
+          bresp_d = ((s_axil_awaddr_i == CTRL_ADDR) || (s_axil_awaddr_i == BAUD_DIV_ADDR) ||
+                     (s_axil_awaddr_i == MODE_ADDR) || (s_axil_awaddr_i == THR_ADDR)) ?
+                    2'b00 : 2'b10;
         end
       end
       AXIL_RESPOND: begin
@@ -153,6 +154,7 @@ module uart_registers (
   logic arready_d, arready_q;
   logic rvalid_d, rvalid_q;
   logic [31:0] rdata_d, rdata_q;
+  logic [1:0]  rresp_d, rresp_q;
 
   always_ff @(posedge clk_i) begin
     if (!resetn_i) begin
@@ -160,11 +162,13 @@ module uart_registers (
       arready_q <= 1'b1;
       rvalid_q <= 1'b0;
       rdata_q <= 32'h0;
+      rresp_q <= 2'b00;
     end else begin
       rd_state_q <= rd_state_d;
       arready_q <= arready_d;
       rvalid_q <= rvalid_d;
       rdata_q <= rdata_d;
+      rresp_q <= rresp_d;
     end
   end
 
@@ -174,6 +178,7 @@ module uart_registers (
     arready_d = arready_q;
     rvalid_d = rvalid_q;
     rdata_d = rdata_q;
+    rresp_d = rresp_q;
 
     case(rd_state_q)
       AXIL_LISTEN: begin
@@ -181,8 +186,11 @@ module uart_registers (
           rd_state_d = AXIL_RESPOND;
           arready_d = 1'b0;
           rvalid_d = 1'b1;
+          rresp_d = ((s_axil_araddr_i == CTRL_ADDR) || (s_axil_araddr_i == BAUD_DIV_ADDR) ||
+                     (s_axil_araddr_i == MODE_ADDR) || (s_axil_araddr_i == STATUS_ADDR) ||
+                     (s_axil_araddr_i == THR_ADDR) || (s_axil_araddr_i == RHR_ADDR)) ?
+                    2'b00: 2'b10;
 
-          // TODO: Implement data forwarding on s_axil_rdata_o
           case(s_axil_araddr_i)
             CTRL_ADDR: rdata_d = CTRL;
             STATUS_ADDR: begin
@@ -233,7 +241,7 @@ module uart_registers (
     endcase
 
     // outputs
-    s_axil_rresp_o = 2'b00;            // Reads always return status of OKAY
+    s_axil_rresp_o = rresp_q;
     s_axil_arready_o = arready_q;
     s_axil_rvalid_o = rvalid_q;
     s_axil_rdata_o = rdata_q;
