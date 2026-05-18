@@ -48,7 +48,7 @@ module uart (
   logic frame_error_li;
   logic [31:0] config_lo;
 
-  uart_registers uart_registers_inst (
+  uart_registers uart_registers_u (
     .clk_i(clk_i),
     .resetn_i(resetn_i),
     // AXI Lite connections

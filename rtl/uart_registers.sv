@@ -74,7 +74,8 @@ module uart_registers (
   logic [31:0] RHR;
 
   logic  wr_start, wr_complete;
-  assign wr_start = (s_axil_wready_o && s_axil_wvalid_i) && (s_axil_wready_o && s_axil_wvalid_i);
+  assign wr_start = (s_axil_awready_o && s_axil_awvalid_i) &&
+                    (s_axil_wready_o && s_axil_wvalid_i);
   assign wr_complete = (s_axil_bvalid_o && s_axil_bready_i);
 
   logic  rd_start, rd_complete;
@@ -98,8 +99,8 @@ module uart_registers (
   always_ff @(posedge clk_i) begin
     if (!resetn_i) begin
       wr_state_q <= AXIL_LISTEN;
-      awready_q <= 1'b1;
-      wready_q <= 1'b1;
+      awready_q <= 1'b0;
+      wready_q <= 1'b0;
       bvalid_q <= 1'b0;
       bresp_q <= 2'b00;
     end else begin
@@ -121,6 +122,7 @@ module uart_registers (
 
     case (wr_state_q)
       AXIL_LISTEN: begin
+
         if (wr_start) begin
           wr_state_d = AXIL_RESPOND;
           awready_d = 1'b0;
@@ -129,13 +131,14 @@ module uart_registers (
           bresp_d = ((s_axil_awaddr_i == CTRL_ADDR) || (s_axil_awaddr_i == BAUD_DIV_ADDR) ||
                      (s_axil_awaddr_i == MODE_ADDR) || (s_axil_awaddr_i == THR_ADDR)) ?
                     2'b00 : 2'b10;
+        end else if (s_axil_awvalid_i && s_axil_wvalid_i) begin
+          awready_d = 1'b1;
+          wready_d = 1'b1;
         end
       end
       AXIL_RESPOND: begin
         if (wr_complete) begin
           wr_state_d = AXIL_LISTEN;
-          awready_d = 1'b1;
-          wready_d = 1'b1;
           bvalid_d = 1'b0;
         end
       end
@@ -159,7 +162,7 @@ module uart_registers (
   always_ff @(posedge clk_i) begin
     if (!resetn_i) begin
       rd_state_q <= AXIL_LISTEN;
-      arready_q <= 1'b1;
+      arready_q <= 1'b0;
       rvalid_q <= 1'b0;
       rdata_q <= 32'h0;
       rresp_q <= 2'b00;
@@ -182,6 +185,7 @@ module uart_registers (
 
     case(rd_state_q)
       AXIL_LISTEN: begin
+
         if (rd_start) begin
           rd_state_d = AXIL_RESPOND;
           arready_d = 1'b0;
@@ -229,12 +233,13 @@ module uart_registers (
             THR_ADDR: rdata_d = THR;
             RHR_ADDR: rdata_d = RHR;
           endcase
+        end else if (s_axil_arvalid_i) begin
+          arready_d = 1'b1;
         end
       end
       AXIL_RESPOND: begin
         if (rd_complete) begin
           rd_state_d = AXIL_LISTEN;
-          arready_d = 1'b1;
           rvalid_d = 1'b0;
         end
       end
@@ -333,6 +338,7 @@ module uart_registers (
 
       // On a read @RHR & the status register indicates RHR is READY
       // to read (STATUS[1] == 1'b1) we pulse pop for a single cycle.
+      // NOTE: If ever rhr_ready_o is asserted RHR has already been written to
       if (rhr_ready_o) begin
         rhr_ready_o <= 1'b0;
       end else if (rd_start && (s_axil_araddr_i == RHR_ADDR) && STATUS[1]) begin
@@ -344,10 +350,10 @@ module uart_registers (
   // STATUS register
   logic [31:0] STATUS_d;
 
-  initial STATUS[31:0] = 32'h181;
+  initial STATUS[31:0] = 32'h1e1;
   always_ff @(posedge clk_i) begin
     if (!resetn_i) begin
-      STATUS <= 32'h181;
+      STATUS <= 32'h1e1;
     end else begin
       STATUS <= STATUS_d;
     end
@@ -364,6 +370,7 @@ module uart_registers (
       tx_fifo_full_i
     };
 
+    // The overrun bit
     if (rd_start && (s_axil_araddr_i == STATUS_ADDR) && STATUS[4]) begin
       STATUS_d[4] = 1'b0;
     end else begin

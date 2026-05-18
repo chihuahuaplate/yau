@@ -14,6 +14,7 @@ module tb_uart();
   initial begin
     $timeformat(clock_unit_p, 2, "ns");
   end
+
   // bench clock & reset
   bit           clk_i;
   bit           reset_i, _reset_i, reset_li;
@@ -40,10 +41,15 @@ module tb_uart();
     BAUD_DIV_ADDR = 3'd2,
     MODE_ADDR     = 3'd3,
     THR_ADDR      = 3'd4,
-    RHR_ADDR      = 3'd5
+    RHR_ADDR      = 3'd5,
+    INVALID_ADDR_1,
+    INVALID_ADDR_2
   } uart_addr_e;
 
   // DUT inputs & outputs
+  wire          resetn_i;
+  assign resetn_i = !reset_i;
+
   uart_addr_e s_axil_awaddr_i;
   logic [2:0] s_axil_awprot_i;
   logic       s_axil_awvalid_i;
@@ -74,7 +80,7 @@ module tb_uart();
   // DUT instance
   uart DUT (
     .clk_i(clk_i),
-    .resetn_i(!reset_i),
+    .resetn_i(resetn_i),
     // Register interface
     .s_axil_awaddr_i(s_axil_awaddr_i),
     .s_axil_awprot_i(s_axil_awprot_i),
@@ -102,10 +108,9 @@ module tb_uart();
 
   assign rx_i = tx_o;
 
-  task automatic reset;
+  task reset;
     reset_li = 1;
-    $display("[%0t] Reset.", $time);
-    repeat (1) @(negedge clk_i);
+    repeat (reset_count_p) @(negedge clk_i);
     reset_li = 0;
   endtask
 
@@ -122,74 +127,149 @@ module tb_uart();
 
   // bench tasks
 
-  task automatic write(
-    input uart_addr_e address,
-    input logic [31:0] data
+  task write(
+    input uart_addr_e  addr,
+    input bit [31:0] data
   );
-    s_axil_awaddr_i = address;
+    s_axil_awaddr_i = addr;
     s_axil_wdata_i = data;
-    s_axil_wstrb_i = '1;
+    s_axil_wstrb_i = 4'hF;
 
-    s_axil_awvalid_i = 1;
-    s_axil_wvalid_i = 1;
-    wait ((s_axil_wready_o && s_axil_wvalid_i) && (s_axil_wready_o && s_axil_wvalid_i));
-    $write("[%0t] WRITE[%p]: %0x ", $time, s_axil_awaddr_i, s_axil_wdata_i);
+    fork
+      begin
+        #($urandom_range(0, 0));
+        s_axil_awvalid_i = #(clock_period_p * $urandom_range(0, 5)) 1;
+        wait (s_axil_awvalid_i && s_axil_awready_o);
+        @(posedge clk_i);
+        $write("[%0t] WRITE Addr: %0p ", $time, s_axil_awaddr_i);
+      end
+      begin
+        s_axil_wvalid_i = #(clock_period_p * $urandom_range(0, 5)) 1;
+        wait (s_axil_wvalid_i && s_axil_wready_o);
+        @(posedge clk_i);
+        $write("[%0t] WRITE Data: 32'b%0b ", $time, s_axil_wdata_i);
+      end
+    join
+
     @(negedge clk_i);
+
     s_axil_awvalid_i = 0;
     s_axil_wvalid_i = 0;
 
-    s_axil_bready_i = 1;
+    #(clock_period_p * $urandom_range(0, 5)) s_axil_bready_i = 1;
     wait (s_axil_bready_i && s_axil_bvalid_o);
-    if (s_axil_bresp_o == 2'b00) $write("[PASS]");
-    else $write("[ERROR]");
-    $display();
+    @(posedge clk_i);
+    if (s_axil_bresp_o == 2'b00) $display("[%0t] PASS", $time);
+    else $display("[%0t] FAIL", $time);
     @(negedge clk_i);
     s_axil_bready_i = 0;
   endtask
 
-  task automatic read(
-    input uart_addr_e address
+  task read(
+    input uart_addr_e addr
   );
-    s_axil_araddr_i = address;
+    s_axil_araddr_i = addr;
 
-    s_axil_arvalid_i = 1;
-    wait (s_axil_arready_o && s_axil_arvalid_i);
-    $write("[%0t] READ[%p]: ", $time, s_axil_araddr_i);
+    #(clock_period_p * $urandom_range(0, 5)) s_axil_arvalid_i = 1;
+    wait (s_axil_arvalid_i && s_axil_arready_o);
+    @(posedge clk_i);
+    $write("[%0t] Read Addr: %0p ", $time, s_axil_araddr_i);
     @(negedge clk_i);
+
     s_axil_arvalid_i = 0;
 
-    s_axil_rready_i = 1;
+    #(clock_period_p * $urandom_range(0, 5)) s_axil_rready_i = 1;
     wait (s_axil_rready_i && s_axil_rvalid_o);
-    if (s_axil_rresp_o == 2'b00) $write("[PASS] ");
-    else $write("[ERROR] ");
-    $write("s_axil_rdata_o = %0x", s_axil_rdata_o);
-    $display();
+    @(posedge clk_i);
+    $write("[%0t] Read Data: 32'b%0b ", $time, s_axil_rdata_o);
+    if (s_axil_rresp_o == 2'b00) $display("[%0t] PASS", $time);
+    else $display("[%0t] FAIL", $time);
     @(negedge clk_i);
     s_axil_rready_i = 0;
   endtask
 
-  task automatic read_until_cond(
+  // task automatic write(
+  //   input uart_addr_e address,
+  //   input logic [31:0] data
+  // );
+  //   s_axil_awaddr_i = address;
+  //   s_axil_wdata_i = data;
+  //   s_axil_wstrb_i = '1;
+
+  //   s_axil_awvalid_i = 1;
+  //   s_axil_wvalid_i = 1;
+  //   wait ((s_axil_wready_o && s_axil_wvalid_i) && (s_axil_wready_o && s_axil_wvalid_i));
+  //   $write("[%0t] WRITE[%p]: %0x ", $time, s_axil_awaddr_i, s_axil_wdata_i);
+  //   @(negedge clk_i);
+  //   s_axil_awvalid_i = 0;
+  //   s_axil_wvalid_i = 0;
+
+  //   s_axil_bready_i = 1;
+  //   wait (s_axil_bready_i && s_axil_bvalid_o);
+  //   if (s_axil_bresp_o == 2'b00) $write("[PASS]");
+  //   else $write("[ERROR]");
+  //   $display();
+  //   @(negedge clk_i);
+  //   s_axil_bready_i = 0;
+  // endtask
+
+  // task automatic read(
+  //   input uart_addr_e address
+  // );
+  //   s_axil_araddr_i = address;
+
+  //   s_axil_arvalid_i = 1;
+  //   wait (s_axil_arready_o && s_axil_arvalid_i);
+  //   $write("[%0t] READ[%p]: ", $time, s_axil_araddr_i);
+  //   @(negedge clk_i);
+  //   s_axil_arvalid_i = 0;
+
+  //   s_axil_rready_i = 1;
+  //   wait (s_axil_rready_i && s_axil_rvalid_o);
+  //   if (s_axil_rresp_o == 2'b00) $write("[PASS] ");
+  //   else $write("[ERROR] ");
+  //   $write("s_axil_rdata_o = %0x", s_axil_rdata_o);
+  //   $display();
+  //   @(negedge clk_i);
+  //   s_axil_rready_i = 0;
+  // endtask
+
+  task read_until_cond(
     int baud_rate,
     uart_addr_e addr,
     bit [31:0] cond
   );
     bit [26:0] tx_baud_div;
     int        clock_count;
-
     tx_baud_div = (baud_div_f(baud_rate) * 16);
+    clock_count = 0;
 
     do begin
+      assert (addr != INVALID_ADDR_1);
+      assert (addr != INVALID_ADDR_2);
+
+      // NOTE: Wait at most 2 of the longest frames possible
+      // 2 * (1 stop, 8 bits, 1 parity, 2 stop)
+      if (clock_count == 24) begin
+        $display("[%0t] READ_UNTIL_COND: timeout.", $time);
+        break;
+      end
+
       read(addr);
       if ((s_axil_rdata_o & cond) != cond) begin
         repeat (tx_baud_div) @(negedge clk_i);
+        clock_count++;
       end else begin
-        $display("[%0t] READ_UNTIL_COND: %p = %0d", $time, addr, cond);
+        $display("[%0t] READ_UNTIL_COND: %p = 32'b%0b", $time, addr, cond);
         break;
       end
+
     end while (1);
   endtask
 
-  localparam bit [31:0] RHR_VALID     = 1 << 0;
+
+  // TODO: Do better ???
+  localparam bit [31:0] THR_VALID     = 1 << 0;
   localparam bit [31:0] RHR_READY     = 1 << 1;
   localparam bit [31:0] FRAME_ERROR   = 1 << 2;
   localparam bit [31:0] PARITY_ERROR  = 1 << 3;
@@ -199,6 +279,7 @@ module tb_uart();
   localparam bit [31:0] TX_FIFO_EMPTY = 1 << 7;
   localparam bit [31:0] RX_FIFO_EMPTY = 1 << 8;
 
+  string                word = "Hello World";
 
   initial begin
     // default values
@@ -215,16 +296,28 @@ module tb_uart();
     s_axil_rready_i  = '0;
 
     @(negedge reset_i);
-    repeat (10) @(negedge clk_i);
-
+    @(negedge clk_i);
     $display("[%0t] Simulation start.", $time);
+
+
+    $display("[%0t] Read test out of reset.", $time);
+    read(CTRL_ADDR);
+    read(STATUS_ADDR);
+    read(BAUD_DIV_ADDR);
+    read(MODE_ADDR);
+    read(THR_ADDR);
+    read(RHR_ADDR);
+    read(INVALID_ADDR_1);
+    read(INVALID_ADDR_2);
     $display("[%0t] Write test.", $time);
-    write(CTRL_ADDR, 3);
-    write(STATUS_ADDR, 3);
-    write(BAUD_DIV_ADDR, 3);
-    write(MODE_ADDR, 3);
-    write(THR_ADDR, 3);
-    write(RHR_ADDR, 3);
+    write(CTRL_ADDR, 15);
+    write(STATUS_ADDR, 15);
+    write(BAUD_DIV_ADDR, 15);
+    write(MODE_ADDR, 15);
+    write(THR_ADDR, 15);
+    write(RHR_ADDR, 15);
+    write(INVALID_ADDR_1, 15);
+    write(INVALID_ADDR_2, 15);
     $display("[%0t] Read test.", $time);
     read(CTRL_ADDR);
     read(STATUS_ADDR);
@@ -232,39 +325,39 @@ module tb_uart();
     read(MODE_ADDR);
     read(THR_ADDR);
     read(RHR_ADDR);
+    read(INVALID_ADDR_1);
+    read(INVALID_ADDR_2);
 
     reset();
 
-    $display("[%0t] Transmit test.", $time);
+    // SEND ONE Character
+
+    // Stop resetting uarts & FIFOs
     write(CTRL_ADDR, 0);
     write(BAUD_DIV_ADDR, baud_div_f(115200));
-    write(THR_ADDR, 32'h55);
+    write(THR_ADDR, 8'b0101_0101);
 
     read_until_cond(115200, STATUS_ADDR, RHR_READY);
     read(RHR_ADDR);
-    read(STATUS_ADDR);
+    assert(s_axil_rdata_o == 8'b0101_0101);
+
+    // Send string
+    foreach (word[i]) begin
+      write(THR_ADDR, word[i]);
+      $display("[%0t] Sent charcter %s", $time, word[i]);
+    end
+
+    // Wait a long time
+    for (int i = 0; i < word.len(); i++) begin
+      // Block until we receive confirmation of a character to recv or timeout
+      read_until_cond(115200, STATUS_ADDR, RHR_READY);
+      read(RHR_ADDR);
+      $display("[%0t] Recv charcter %s", $time, s_axil_rdata_o);
+    end
+
 
     repeat (10) @(negedge clk_i);
     $finish();
-  end
-
-
-  final begin
-    if(error) begin
-      $display("[0%t] Simulation Failed!", $time);
-      $display("    ______                    ");
-      $display("   / ____/_____________  _____");
-      $display("  / __/ / ___/ ___/ __ \\/ ___/");
-      $display(" / /___/ /  / /  / /_/ / /    ");
-      $display("/_____/_/  /_/   \\____/_/    ");
-    end else begin
-      $display("[%0t] Simulation Succeeded!", $time);
-      $display("    ____  ___   __________");
-      $display("   / __ \\/   | / ___/ ___/");
-      $display("  / /_/ / /| | \\__ \\\__\ ");
-      $display(" / ____/ ___ |___/ /__/ /");
-      $display("/_/   /_/  |_/____/____/");
-    end
   end
 
 endmodule
