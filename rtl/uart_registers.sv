@@ -336,9 +336,9 @@ module uart_registers (
         RHR[7:0] <= rhr_data_i;
       end
 
-      // On a read @RHR & the status register indicates RHR is READY
-      // to read (STATUS[1] == 1'b1) we pulse pop for a single cycle.
-      // NOTE: If ever rhr_ready_o is asserted RHR has already been written to
+      // On a read @RHR AND the status register indicates RHR is READY
+      // to read (STATUS[1] == 1'b1) (we have given the programmer a opportunity to read)
+      // we pulse pop for a single cycle.
       if (rhr_ready_o) begin
         rhr_ready_o <= 1'b0;
       end else if (rd_start && (s_axil_araddr_i == RHR_ADDR) && STATUS[1]) begin
