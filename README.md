@@ -25,7 +25,6 @@ RW | ADDR 4: THR[7:0] = [thr_data[7:0]]
 
 R | ADDR 5: RHR[7:0] = [rhr_data[7:0]]
 
-
 ### On chooosing a baud divisor
 Use the following equation for setting BAUD_DIV register, baud_div =
 f_clk/(16 * baud_rate).
@@ -50,21 +49,22 @@ valid range for both.
 
 ## Components
 ### [uart.sv](./rtl/uart.sv)
-AXI4 Lite UART peripheral.
+Top module, the AXI4 Lite UART peripheral.
 
 ### [uart_registers.sv](./rtl/uart_registers.sv)
 Registers used for Control & Status of the peripheral of which there
-are 6.
+are 6, CTRL, STATUS, BAUD_DIV, MODE, THR, RHR.
 
 ### [fifo_fwft.sv](./rtl/fifo_fwft.sv)
-First Word Fall Through FIFO, appropriate for ready-valid handshaking
-scheme.
+First Word Fall Through FIFO, with ready-valid handshaking.
 
 ### [uart_tx_core.sv](./rtl/uart_tx_core.sv)
-Transmitter UART.
+Transmitter UART with ready valid handshake. On a handshake register data and configuration inputs.
 
 ### [uart_rx_core.sv](./rtl/uart_rx_core.sv)
-Receiver UART.
+Receiver UART with ready-valid handshake. Handshake mechanism is only
+used to detect overrun error. Configuration input is not registered
+internally and should be held constant.
 
 ## References
 The following are links to projects that inspired me and links I found
