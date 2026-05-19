@@ -65,8 +65,7 @@ module tb_uart_tx_core();
   function int baud_div_f(
     input int baud_rate
   );
-    // TODO: any overflow or underflow warnings?
-    baud_div_f = frequency_f() / (16 * baud_rate);
+    baud_div_f = frequency_f() / baud_rate;
   endfunction
 
   function bit parity_f(
@@ -85,8 +84,9 @@ module tb_uart_tx_core();
   // bench tasks
   task automatic reset;
     reset_li = 1;
-    repeat (1) @(negedge clk_i);
+    repeat (reset_count_p) @(negedge clk_i);
     reset_li = 0;
+    @(negedge clk_i);
   endtask
 
   task automatic configure(
@@ -167,21 +167,21 @@ module tb_uart_tx_core();
     parity_en_e parity_en;
     parity_type_e parity_type;
     stop_e stop;
-    bit [26:0] baud_div;
+    bit [26:0] baud_max;
     int data_len;
 
     data_width  = data_width_e'(config_i[1:0]);
     parity_en   = parity_en_e'(config_i[2]);
     parity_type = parity_type_e'(config_i[3]);
     stop        = stop_e'(config_i[4]);
-    baud_div    = config_i[31:5];
+    baud_max    = config_i[31:5] - 1;
 
     // clear queue & index
     m_tx_frame_q.delete();
     m_tx_frame_index <= 0;
 
     m_tx_baud_count <= 0;
-    m_tx_baud_max = (baud_div << 4) - 1;
+    m_tx_baud_max = baud_max;
 
     // start bit
     m_tx_frame_q.push_back(1'b0);

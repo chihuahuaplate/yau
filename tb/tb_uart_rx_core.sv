@@ -248,7 +248,6 @@ module tb_uart_rx_core();
     end else if (tx_active) begin
       tx_o <= tx_frame_q[tx_frame_index];
 
-      // TODO: implement false start
       if (tx_start_type == FALSE_START) begin
         if (tx_false_timing == FALSE_START_EARLY) begin
           if (tx_frame_index == 0 && (tx_baud_count > 0)) begin
@@ -526,7 +525,6 @@ module tb_uart_rx_core();
                         configure(baud_rate, data_width, parity_en, parity_type, stop);
                         transmit($urandom, data_width, parity_en, parity_type, stop, start_type, false_timing, frame_error, parity_error);
 
-                        // TODO: wait atleast two tx_frame worth of time
                         @(negedge tx_active);
                         repeat (10) @(negedge clk_i);
 

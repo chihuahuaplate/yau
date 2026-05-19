@@ -267,8 +267,6 @@ module tb_uart();
     end while (1);
   endtask
 
-
-  // TODO: Do better ???
   localparam bit [31:0] THR_VALID     = 1 << 0;
   localparam bit [31:0] RHR_READY     = 1 << 1;
   localparam bit [31:0] FRAME_ERROR   = 1 << 2;
@@ -348,10 +346,11 @@ module tb_uart();
     end
 
     // Wait a long time
-    for (int i = 0; i < word.len(); i++) begin
+    foreach (word[i]) begin
       // Block until we receive confirmation of a character to recv or timeout
       read_until_cond(115200, STATUS_ADDR, RHR_READY);
       read(RHR_ADDR);
+      assert(s_axil_rdata_o == word[i]);
       $display("[%0t] Recv charcter %s", $time, s_axil_rdata_o);
     end
 

@@ -19,16 +19,15 @@ module uart_tx_core
   logic [31:0] config_q, config_d;
   assign config_d = config_i;
 
+
   always_ff @(posedge clk_i) begin
     if (reset_i) begin
       config_q <= '0;
     end else if (ready_o && valid_i) begin
-      config_q[31:5] <= (config_d[31:5] << 4) - 1;
-      config_q[4:0]  <= config_d[4:0];
+      config_q <= config_d;
     end
   end
 
-  // TODO: clearly explain all these signals
   data_width_e  config_data_width;
   parity_en_e   config_parity_en;
   parity_type_e config_parity_type;
@@ -43,7 +42,7 @@ module uart_tx_core
     config_parity_en   = parity_en_e'(config_q[2]);
     config_parity_type = parity_type_e'(config_q[3]);
     config_stop        = stop_e'(config_q[4]);
-    config_baud_max    = config_q[31:5];
+    config_baud_max    = config_q[31:5] - 1;
 
     case (config_data_width)
       DW_5: config_data_msb = 3'd4;
@@ -92,7 +91,7 @@ module uart_tx_core
 
           if (baud_count == config_baud_max) begin
             tx_state <= DATA;
-            parity_reg <= !config_parity_type; // TODO: Explain
+            parity_reg <= !config_parity_type;
             baud_count <= '0;
             bit_count <= '0;
           end

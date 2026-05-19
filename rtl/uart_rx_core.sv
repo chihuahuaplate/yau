@@ -20,8 +20,6 @@ module uart_rx_core
   );
 
   ////////// Signal Declarations //////////
-
-  // TODO: clearly explain all these signals
   data_width_e  config_data_width;
   parity_en_e   config_parity_en;
   parity_type_e config_parity_type;
@@ -102,10 +100,6 @@ module uart_rx_core
           frame_error_o <= 1'b0;
           parity_error_o <= 1'b0;
 
-          // TODO: ????
-          // Clear the false_start bit before checking for neg edge,
-          // this gives us a 
-          
           if (false_start) begin
             false_start <= 1'b0;
           end else if (negedge_rx) begin

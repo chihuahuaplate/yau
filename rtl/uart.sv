@@ -132,10 +132,13 @@ module uart (
   // TX UART signals
   logic       tx_uart_ready_lo;
 
+  logic [31:0] tx_config;
+  assign tx_config = {config_lo[31:5] << 4, config_lo[4:0]};
+
   uart_tx_core tx_uart (
     .clk_i(clk_i),
     .reset_i(reset_tx_uart_lo),
-    .config_i(config_lo),
+    .config_i(tx_config),
     .ready_o(tx_uart_ready_lo),
     .valid_i(tx_fifo_valid_lo),
     .data_i(tx_fifo_data_lo),
