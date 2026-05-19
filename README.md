@@ -17,13 +17,13 @@ RW | ADDR 0: CTRL[3:0] | [reset_rx_uart, reset_tx_uart, reset_rx_fifo, reset_tx_
 R | ADDR 1: STATUS[8:5] = [rx_fifo_empty, tx_fifo_empty, rx_fifo_full, tx_fifo_full]<br>
 R | ADDR 1: STATUS[4:0] = [overrun_error, parity_error, frame_error, rhr_ready, thr_valid]
 
-RW | ADDR 2: BAUD_DIV[26:0] = [baud_div]
+RW | ADDR 2: BAUD_DIV[26:0] = [baud_div[26:0]]
 
 RW | ADDR 3: MODE[4:0] = [stops, parity_type, parity_mode, data_width[1:0]]
 
-RW | ADDR 4: THR[7:0] = [thr_data]
+RW | ADDR 4: THR[7:0] = [thr_data[7:0]]
 
-R | ADDR 5: RHR[7:0] = [rhr_data]
+R | ADDR 5: RHR[7:0] = [rhr_data[7:0]]
 
 
 ### On chooosing a baud divisor
