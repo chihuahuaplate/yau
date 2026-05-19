@@ -1,4 +1,4 @@
-# Yet Another Uart (WIP)
+# Yet Another Uart
 ## Introduction
 This project implements an AXI4 Lite UART peripheral in SystemVerilog
 using Vivado 2025.2. The implementation lacks DMA or Interrupts and
@@ -32,8 +32,10 @@ f_clk/(16 * baud_rate).
 The receiver uart uses this value by counting from 0 to
 (baud_div-1) to sample the incoming data.
 
-The transmitter uart uses the baud_div value bu counting from 0 to
-(baud_div << 4) - 1.
+The transmitter uart uses the baud_div value by counting from 0 to
+(baud_div << 4) - 1. The shifting of baud_div by 4 is done inside of
+[uart.sv](./rtl/uart.sv).
+
 
 When using both uart's as in the case of uart.sv some values of
 baud_div will cause overflows and underflows. A valid baud_div value
